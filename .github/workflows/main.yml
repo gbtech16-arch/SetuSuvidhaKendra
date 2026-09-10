@@ -1,41 +1,54 @@
-name: Inspect Android ZIP
+name: Build Setu Suvidha Kendra APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  inspect:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Inspect ZIP
+      - name: Extract Android project
         run: |
-          echo "===== ZIP CONTENTS ====="
-          unzip -l SetuSuvidhaKendraAndroid-phone-build.zip
-
-          echo ""
-          echo "===== EXTRACTING ====="
           rm -rf project
-          mkdir project
           unzip -q SetuSuvidhaKendraAndroid-phone-build.zip -d project
+          echo "Android project:"
+          ls -la project/SetuSuvidhaKendraAndroid
 
-          echo ""
-          echo "===== FOLDER STRUCTURE ====="
-          find project -print | sort
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-          echo ""
-          echo "===== IMPORTANT ANDROID FILES ====="
-          find project -type f \( \
-            -name "gradlew" \
-            -o -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-            -o -name "build.gradle" \
-            -o -name "build.gradle.kts" \
-            -o -name "AndroidManifest.xml" \
-          \) -print | sort
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-          echo ""
-          echo "===== INSPECTION FINISHED ====="
+      - name: Install Android SDK
+        run: |
+          sdkmanager "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Install Gradle
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip
+          unzip -q gradle-8.7-bin.zip -d "$HOME/gradle"
+          echo "$HOME/gradle/gradle-8.7/bin" >> "$GITHUB_PATH"
+
+      - name: Build APK
+        working-directory: project/SetuSuvidhaKendraAndroid
+        run: |
+          gradle assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Setu-Suvidha-Kendra-APK
+          path: project/SetuSuvidhaKendraAndroid/app/build/outputs/apk/debug/*.apk
